@@ -1,0 +1,44 @@
+# Compiled Object files
+*.o
+*.a
+*.so
+*.dylib
+
+# Unreal Engine
+Binaries/
+Intermediate/
+Saved/
+.vs/
+*.VC.db
+*.VC.db-shm
+*.VC.db-wal
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+
+# Visual Studio cache/options
+.vs/
+
+# Unreal Engine generated files
+*.sln
+*.vcxproj
+*.vcxproj.filters
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+DerivedDataCache/
