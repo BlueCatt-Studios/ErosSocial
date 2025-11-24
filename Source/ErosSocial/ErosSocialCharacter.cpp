@@ -1,4 +1,4 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+// Copyright BlueCatt Studios LTDA. All Rights Reserved.
 
 #include "ErosSocialCharacter.h"
 #include "Engine/LocalPlayer.h"
@@ -10,6 +10,8 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
+#include "Systems/ClothingSystem.h"
+#include "ErosSocialPlayerState.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
@@ -20,18 +22,16 @@ AErosSocialCharacter::AErosSocialCharacter()
 {
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
-		
+
 	// Don't rotate when the controller rotates. Let that just affect the camera.
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
 
 	// Configure character movement
-	GetCharacterMovement()->bOrientRotationToMovement = true; // Character moves in the direction of input...	
-	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f); // ...at this rotation rate
+	GetCharacterMovement()->bOrientRotationToMovement = true;
+	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f);
 
-	// Note: For faster iteration times these variables, and many more, can be tweaked in the Character Blueprint
-	// instead of recompiling to adjust them
 	GetCharacterMovement()->JumpZVelocity = 700.f;
 	GetCharacterMovement()->AirControl = 0.35f;
 	GetCharacterMovement()->MaxWalkSpeed = 500.f;
@@ -39,25 +39,168 @@ AErosSocialCharacter::AErosSocialCharacter()
 	GetCharacterMovement()->BrakingDecelerationWalking = 2000.f;
 	GetCharacterMovement()->BrakingDecelerationFalling = 1500.0f;
 
-	// Create a camera boom (pulls in towards the player if there is a collision)
+	// Create a camera boom
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
-	CameraBoom->TargetArmLength = 400.0f; // The camera follows at this distance behind the character	
-	CameraBoom->bUsePawnControlRotation = true; // Rotate the arm based on the controller
+	CameraBoom->TargetArmLength = 400.0f;
+	CameraBoom->bUsePawnControlRotation = true;
 
 	// Create a follow camera
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
-	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
-	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
+	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
+	FollowCamera->bUsePawnControlRotation = false;
 
-	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
-	// are set in the derived blueprint asset named ThirdPersonCharacter (to avoid direct content references in C++)
+	// Criar ClothingSystem
+	ClothingSystem = CreateDefaultSubobject<UClothingSystem>(TEXT("ClothingSystem"));
 }
 
 void AErosSocialCharacter::BeginPlay()
 {
-	// Call the base class  
 	Super::BeginPlay();
+
+	// Inicializar ClothingSystem
+	if (ClothingSystem)
+	{
+		ClothingSystem->Initialize(this);
+	}
+
+	// Obter PlayerState
+	PlayerStateRef = Cast<AErosSocialPlayerState>(GetPlayerState());
+
+	UE_LOG(LogTemplateCharacter, Warning, TEXT("AErosSocialCharacter::BeginPlay - Character initialized"));
+}
+
+void AErosSocialCharacter::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+
+	// Sincronizar com PlayerState quando possed
+	SyncWithPlayerState();
+}
+
+//////////////////////////////////////////////////////////////////////////
+// Customization
+
+void AErosSocialCharacter::InitializeCharacter(const FCharacterSaveData& CharacterData)
+{
+	CurrentCharacterData = CharacterData;
+
+	// Aplicar customizações de corpo
+	ApplyBodyCustomization(CharacterData.BodyCustomization);
+
+	// Aplicar customizações de aparência
+	ApplyAppearanceCustomization(CharacterData.AppearanceCustomization);
+
+	// Aplicar outfit atual
+	if (ClothingSystem && !CharacterData.CurrentOutfit.IsEmpty())
+	{
+		FOutfitData OutfitData;
+		OutfitData.ClothingItems = CharacterData.CurrentOutfit;
+		ClothingSystem->ApplyOutfitData(OutfitData);
+	}
+
+	UE_LOG(LogTemplateCharacter, Warning, TEXT("AErosSocialCharacter::InitializeCharacter - Initialized with '%s'"),
+		*CharacterData.CharacterName);
+}
+
+void AErosSocialCharacter::ApplyBodyCustomization(const FBodyCustomization& BodyCustomization)
+{
+	// Armazenar os valores dos morphs
+	BreastSizeMorph = BodyCustomization.BreastSize;
+	ButtSizeMorph = BodyCustomization.ButtSize;
+	HeightMorph = BodyCustomization.Height;
+	WeightMorph = BodyCustomization.Weight;
+	MuscleMorph = BodyCustomization.Muscle;
+
+	// Atualizar morphs no skeletal mesh
+	UpdateMorphTargets();
+
+	UE_LOG(LogTemplateCharacter, Warning, TEXT("AErosSocialCharacter::ApplyBodyCustomization - Applied body morphs"));
+}
+
+void AErosSocialCharacter::ApplyAppearanceCustomization(const FAppearanceCustomization& AppearanceCustomization)
+{
+	// Aplicar cor de pele
+	ApplySkinColor(AppearanceCustomization.SkinColor);
+
+	// Aplicar cor de cabelo
+	ApplyHairColor(AppearanceCustomization.HairColor);
+
+	// Outros parâmetros de aparência podem ser adicionados aqui
+
+	UE_LOG(LogTemplateCharacter, Warning, TEXT("AErosSocialCharacter::ApplyAppearanceCustomization - Applied appearance"));
+}
+
+void AErosSocialCharacter::SyncWithPlayerState()
+{
+	if (!PlayerStateRef)
+	{
+		PlayerStateRef = Cast<AErosSocialPlayerState>(GetPlayerState());
+	}
+
+	if (PlayerStateRef)
+	{
+		// Sincronizar nome do personagem
+		PlayerStateRef->SetPlayerName(*CurrentCharacterData.CharacterName);
+
+		// Sincronizar gênero
+		PlayerStateRef->CharacterGender = CurrentCharacterData.CharacterGender;
+
+		UE_LOG(LogTemplateCharacter, Warning, TEXT("AErosSocialCharacter::SyncWithPlayerState - Synced with PlayerState"));
+	}
+}
+
+void AErosSocialCharacter::UpdateMorphTargets()
+{
+	// Obter o skeletal mesh
+	USkeletalMeshComponent* MeshComponent = GetMesh();
+	if (!MeshComponent)
+	{
+		return;
+	}
+
+	// Aplicar morphs (estes nomes precisam existir no skeleton)
+	MeshComponent->SetMorphTarget(FName("BreastSize"), BreastSizeMorph);
+	MeshComponent->SetMorphTarget(FName("ButtSize"), ButtSizeMorph);
+	MeshComponent->SetMorphTarget(FName("Height"), HeightMorph);
+	MeshComponent->SetMorphTarget(FName("Weight"), WeightMorph);
+	MeshComponent->SetMorphTarget(FName("Muscle"), MuscleMorph);
+
+	UE_LOG(LogTemplateCharacter, Log, TEXT("AErosSocialCharacter::UpdateMorphTargets - Updated morph targets"));
+}
+
+void AErosSocialCharacter::ApplySkinColor(const FLinearColor& SkinColor)
+{
+	USkeletalMeshComponent* MeshComponent = GetMesh();
+	if (!MeshComponent)
+	{
+		return;
+	}
+
+	// Criar material dinâmico para pele
+	// Isto será implementado quando você tiver o material de pele configurado
+
+	UE_LOG(LogTemplateCharacter, Log, TEXT("AErosSocialCharacter::ApplySkinColor - Applied skin color"));
+}
+
+void AErosSocialCharacter::ApplyHairColor(const FLinearColor& HairColor)
+{
+	USkeletalMeshComponent* MeshComponent = GetMesh();
+	if (!MeshComponent)
+	{
+		return;
+	}
+
+	// Criar material dinâmico para cabelo
+	// Isto será implementado quando você tiver o material de cabelo configurado
+
+	UE_LOG(LogTemplateCharacter, Log, TEXT("AErosSocialCharacter::ApplyHairColor - Applied hair color"));
+}
+
+void AErosSocialCharacter::OnCharacterDataReceived()
+{
+	// Placeholder para quando integrar com rede
+	UE_LOG(LogTemplateCharacter, Log, TEXT("AErosSocialCharacter::OnCharacterDataReceived - Data received"));
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -73,10 +216,10 @@ void AErosSocialCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 			Subsystem->AddMappingContext(DefaultMappingContext, 0);
 		}
 	}
-	
+
 	// Set up action bindings
-	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent)) {
-		
+	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent))
+	{
 		// Jumping
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
@@ -89,28 +232,22 @@ void AErosSocialCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 	}
 	else
 	{
-		UE_LOG(LogTemplateCharacter, Error, TEXT("'%s' Failed to find an Enhanced Input component! This template is built to use the Enhanced Input system. If you intend to use the legacy system, then you will need to update this C++ file."), *GetNameSafe(this));
+		UE_LOG(LogTemplateCharacter, Error, TEXT("'%s' Failed to find an Enhanced Input component!"), *GetNameSafe(this));
 	}
 }
 
 void AErosSocialCharacter::Move(const FInputActionValue& Value)
 {
-	// input is a Vector2D
 	FVector2D MovementVector = Value.Get<FVector2D>();
 
 	if (Controller != nullptr)
 	{
-		// find out which way is forward
 		const FRotator Rotation = Controller->GetControlRotation();
 		const FRotator YawRotation(0, Rotation.Yaw, 0);
 
-		// get forward vector
 		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-	
-		// get right vector 
 		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 
-		// add movement 
 		AddMovementInput(ForwardDirection, MovementVector.Y);
 		AddMovementInput(RightDirection, MovementVector.X);
 	}
@@ -118,12 +255,10 @@ void AErosSocialCharacter::Move(const FInputActionValue& Value)
 
 void AErosSocialCharacter::Look(const FInputActionValue& Value)
 {
-	// input is a Vector2D
 	FVector2D LookAxisVector = Value.Get<FVector2D>();
 
 	if (Controller != nullptr)
 	{
-		// add yaw and pitch input to controller
 		AddControllerYawInput(LookAxisVector.X);
 		AddControllerPitchInput(LookAxisVector.Y);
 	}
