@@ -1,4 +1,4 @@
-// Copyright BlueCatt, Inc. All Rights Reserved.
+﻿// Copyright BlueCatt, Inc. All Rights Reserved.
 
 // ErosSocial.Build.cs
 
@@ -17,18 +17,15 @@ public class ErosSocial : ModuleRules
             "Engine",
             "InputCore",
             "EnhancedInput",
-            "UMG",           // <- ADICIONAR ESTA LINHA
-            "Slate",         // <- ADICIONAR ESTA LINHA
-            "SlateCore"      // <- ADICIONAR ESTA LINHA
+            "UMG",
+            "Slate",
+            "SlateCore",
+            "Json",           // ← ADICIONAR!
+            "JsonUtilities"   // ← ADICIONAR!
         });
 
         PrivateDependencyModuleNames.AddRange(new string[]
         {
         });
-
-        // Uncomment if you are using online features
-        // PrivateDependencyModuleNames.Add("OnlineSubsystem");
-
-        // To include OnlineSubsystemSteam, add it to the plugins section in your uproject file with the Enabled attribute set to true
     }
 }
