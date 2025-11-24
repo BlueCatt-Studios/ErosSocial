@@ -24,6 +24,12 @@ public class ErosSocial : ModuleRules
             "JsonUtilities"   // ← ADICIONAR!
         });
 
+        PublicIncludePaths.AddRange(new string[]
+        {
+            System.IO.Path.Combine(ModuleDirectory, "Data"),
+            System.IO.Path.Combine(ModuleDirectory, "Systems/SaveSystem")
+        });
+
         PrivateDependencyModuleNames.AddRange(new string[]
         {
         });

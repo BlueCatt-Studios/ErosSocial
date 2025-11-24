@@ -5,7 +5,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/NoExportTypes.h"
-#include "Data/CharacterSaveData.h"
+#include "CharacterSaveData.h"
 #include "SaveGameManager.generated.h"
 
 UCLASS(Blueprintable, BlueprintType)
@@ -52,15 +52,6 @@ public:
 protected:
 	UPROPERTY(EditDefaultsOnly, Category = "SaveGame")
 	FString SaveGameDirectory = TEXT("Saved/ErosSocial/");
-
-	UPROPERTY(EditDefaultsOnly, Category = "SaveGame")
-	FString CharacterDataFileName = TEXT("character_slot_{0}.json");
-
-	UPROPERTY(EditDefaultsOnly, Category = "SaveGame")
-	FString OutfitFileName = TEXT("{0}.finesse");
-
-	UPROPERTY(EditDefaultsOnly, Category = "SaveGame")
-	FString WorldMapFileName = TEXT("{0}.athenas");
 
 	FString SerializeCharacterData(const FCharacterSaveData& CharacterData) const;
 	bool DeserializeCharacterData(const FString& JsonString, FCharacterSaveData& OutCharacterData) const;

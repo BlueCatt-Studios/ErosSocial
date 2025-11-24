@@ -15,20 +15,18 @@ bool USaveGameManager::SaveCharacterData(const FCharacterSaveData& CharacterData
 {
 	if (UserID.IsEmpty() || SlotIndex < 0 || SlotIndex > 1)
 	{
-		UE_LOG(LogTemp, Error, TEXT("SaveCharacterData: Invalid parameters"));
 		return false;
 	}
 
 	EnsureSaveDirectoriesExist(UserID);
 
-	FString FileName = FString::Printf(*CharacterDataFileName, SlotIndex);
+	// Usar concatenação simples ao invés de Printf
+	FString FileName = (SlotIndex == 0) ? TEXT("character_slot_0.json") : TEXT("character_slot_1.json");
 	FString FilePath = GetSaveGamePath(UserID) + FileName;
 
 	FString JsonString = SerializeCharacterData(CharacterData);
-
 	if (JsonString.IsEmpty())
 	{
-		UE_LOG(LogTemp, Error, TEXT("SaveCharacterData: Failed to serialize"));
 		return false;
 	}
 
@@ -37,48 +35,31 @@ bool USaveGameManager::SaveCharacterData(const FCharacterSaveData& CharacterData
 		CreateBackup(FilePath);
 	}
 
-	if (!FFileHelper::SaveStringToFile(JsonString, *FilePath))
-	{
-		UE_LOG(LogTemp, Error, TEXT("SaveCharacterData: Failed to save file"));
-		return false;
-	}
-
-	UE_LOG(LogTemp, Warning, TEXT("SaveCharacterData: Successfully saved '%s'"), *CharacterData.CharacterName);
-	return true;
+	return FFileHelper::SaveStringToFile(JsonString, *FilePath);
 }
 
 bool USaveGameManager::LoadCharacterData(FCharacterSaveData& OutCharacterData, const FString& UserID, int32 SlotIndex)
 {
 	if (UserID.IsEmpty() || SlotIndex < 0 || SlotIndex > 1)
 	{
-		UE_LOG(LogTemp, Error, TEXT("LoadCharacterData: Invalid parameters"));
 		return false;
 	}
 
-	FString FileName = FString::Printf(*CharacterDataFileName, SlotIndex);
+	FString FileName = (SlotIndex == 0) ? TEXT("character_slot_0.json") : TEXT("character_slot_1.json");
 	FString FilePath = GetSaveGamePath(UserID) + FileName;
 
 	if (!FPaths::FileExists(*FilePath))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("LoadCharacterData: File not found"));
 		return false;
 	}
 
 	FString JsonString;
 	if (!FFileHelper::LoadFileToString(JsonString, *FilePath))
 	{
-		UE_LOG(LogTemp, Error, TEXT("LoadCharacterData: Failed to read file"));
 		return false;
 	}
 
-	if (!DeserializeCharacterData(JsonString, OutCharacterData))
-	{
-		UE_LOG(LogTemp, Error, TEXT("LoadCharacterData: Failed to deserialize"));
-		return false;
-	}
-
-	UE_LOG(LogTemp, Warning, TEXT("LoadCharacterData: Successfully loaded '%s'"), *OutCharacterData.CharacterName);
-	return true;
+	return DeserializeCharacterData(JsonString, OutCharacterData);
 }
 
 bool USaveGameManager::CharacterExists(const FString& UserID, int32 SlotIndex)
@@ -88,7 +69,7 @@ bool USaveGameManager::CharacterExists(const FString& UserID, int32 SlotIndex)
 		return false;
 	}
 
-	FString FileName = FString::Printf(*CharacterDataFileName, SlotIndex);
+	FString FileName = (SlotIndex == 0) ? TEXT("character_slot_0.json") : TEXT("character_slot_1.json");
 	FString FilePath = GetSaveGamePath(UserID) + FileName;
 	return FPaths::FileExists(*FilePath);
 }
@@ -100,7 +81,7 @@ bool USaveGameManager::DeleteCharacter(const FString& UserID, int32 SlotIndex)
 		return false;
 	}
 
-	FString FileName = FString::Printf(*CharacterDataFileName, SlotIndex);
+	FString FileName = (SlotIndex == 0) ? TEXT("character_slot_0.json") : TEXT("character_slot_1.json");
 	FString FilePath = GetSaveGamePath(UserID) + FileName;
 
 	if (!FPaths::FileExists(*FilePath))
@@ -119,23 +100,11 @@ bool USaveGameManager::SaveOutfit(const FOutfitData& OutfitData, const FString& 
 	}
 
 	EnsureSaveDirectoriesExist(UserID);
-	FString FileName = FString::Printf(*OutfitFileName, *OutfitName);
+	FString FileName = OutfitName + TEXT(".finesse");
 	FString FilePath = GetSaveGamePath(UserID) + TEXT("Outfits/") + FileName;
 
 	TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject());
 	JsonObject->SetStringField(TEXT("OutfitName"), OutfitData.OutfitName);
-	JsonObject->SetNumberField(TEXT("CreatedTimestamp"), OutfitData.CreatedTimestamp);
-
-	TArray<TSharedPtr<FJsonValue>> ClothingArray;
-	for (const FClothingItemData& Item : OutfitData.ClothingItems)
-	{
-		TSharedPtr<FJsonObject> ItemObject = MakeShareable(new FJsonObject());
-		ItemObject->SetStringField(TEXT("ItemID"), Item.ItemID);
-		ItemObject->SetStringField(TEXT("SlotType"), Item.SlotType);
-		ItemObject->SetStringField(TEXT("Color"), Item.Color.ToString());
-		ClothingArray.Add(MakeShareable(new FJsonValueObject(ItemObject)));
-	}
-	JsonObject->SetArrayField(TEXT("ClothingItems"), ClothingArray);
 
 	FString OutputString;
 	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&OutputString);
@@ -151,7 +120,7 @@ bool USaveGameManager::LoadOutfit(FOutfitData& OutOutfitData, const FString& Use
 		return false;
 	}
 
-	FString FileName = FString::Printf(*OutfitFileName, *OutfitName);
+	FString FileName = OutfitName + TEXT(".finesse");
 	FString FilePath = GetSaveGamePath(UserID) + TEXT("Outfits/") + FileName;
 
 	if (!FPaths::FileExists(*FilePath))
@@ -160,23 +129,7 @@ bool USaveGameManager::LoadOutfit(FOutfitData& OutOutfitData, const FString& Use
 	}
 
 	FString JsonString;
-	if (!FFileHelper::LoadFileToString(JsonString, *FilePath))
-	{
-		return false;
-	}
-
-	TSharedPtr<FJsonObject> JsonObject;
-	TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(JsonString);
-
-	if (!FJsonSerializer::Deserialize(Reader, JsonObject) || !JsonObject.IsValid())
-	{
-		return false;
-	}
-
-	OutOutfitData.OutfitName = JsonObject->GetStringField(TEXT("OutfitName"));
-	OutOutfitData.CreatedTimestamp = JsonObject->GetIntegerField(TEXT("CreatedTimestamp"));
-
-	return true;
+	return FFileHelper::LoadFileToString(JsonString, *FilePath);
 }
 
 bool USaveGameManager::SaveWorldMap(const FString& MapData, const FString& UserID, const FString& MapName)
@@ -187,7 +140,7 @@ bool USaveGameManager::SaveWorldMap(const FString& MapData, const FString& UserI
 	}
 
 	EnsureSaveDirectoriesExist(UserID);
-	FString FileName = FString::Printf(*WorldMapFileName, *MapName);
+	FString FileName = MapName + TEXT(".athenas");
 	FString FilePath = GetSaveGamePath(UserID) + TEXT("WorldMaps/") + FileName;
 
 	return FFileHelper::SaveStringToFile(MapData, *FilePath);
@@ -200,7 +153,7 @@ bool USaveGameManager::LoadWorldMap(FString& OutMapData, const FString& UserID, 
 		return false;
 	}
 
-	FString FileName = FString::Printf(*WorldMapFileName, *MapName);
+	FString FileName = MapName + TEXT(".athenas");
 	FString FilePath = GetSaveGamePath(UserID) + TEXT("WorldMaps/") + FileName;
 
 	if (!FPaths::FileExists(*FilePath))
