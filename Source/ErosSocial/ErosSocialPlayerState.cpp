@@ -9,6 +9,7 @@ AErosSocialPlayerState::AErosSocialPlayerState()
     CharacterName = TEXT("");
     CharacterGender = TEXT("Male");
     UserID = TEXT("");
+    CharacterSlot = -1;
     PlayerStatus = EPlayerStatus::Online;
     bHasPartner = false;
     PartnerPlayerState = nullptr;
@@ -24,6 +25,7 @@ void AErosSocialPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty
     DOREPLIFETIME(AErosSocialPlayerState, CharacterName);
     DOREPLIFETIME(AErosSocialPlayerState, CharacterGender);
     DOREPLIFETIME(AErosSocialPlayerState, UserID);
+    DOREPLIFETIME(AErosSocialPlayerState, CharacterSlot);
     DOREPLIFETIME(AErosSocialPlayerState, PlayerStatus);
     DOREPLIFETIME(AErosSocialPlayerState, LastActivityTime);
     DOREPLIFETIME(AErosSocialPlayerState, bHasPartner);

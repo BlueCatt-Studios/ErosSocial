@@ -7,6 +7,31 @@
 #include "CoreMinimal.h"
 #include "CharacterSaveData.generated.h"
 
+
+/**
+ * Preset de rosto (base para customização)
+ */
+USTRUCT(BlueprintType)
+struct FFacePresetData
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Preset")
+	FString PresetID = TEXT("default");
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Preset")
+	FString PresetName = TEXT("Default");
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Preset")
+	FString Gender = TEXT("Male");
+
+	// Futuro: morphs do preset (por enquanto só ID)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Preset")
+	TMap<FName, float> MorphValues;
+};
+
+
+
 USTRUCT(BlueprintType)
 struct FBodyCustomization
 {
@@ -33,6 +58,9 @@ struct FAppearanceCustomization
 {
 	GENERATED_BODY()
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Face")
+	FString FacePresetID = TEXT("male_preset_01");
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Appearance")
 	FString HairStyle;
 
@@ -56,6 +84,9 @@ struct FAppearanceCustomization
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Appearance")
 	FLinearColor EyeColor = FLinearColor::Blue;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Face Advanced")
+	TMap<FName, float> FaceMorphOverrides;
 };
 
 USTRUCT(BlueprintType)

@@ -1,14 +1,11 @@
+ï»¿// Copyright BlueCatt Studios - All Rights Reserved
 // ErosSocialPlayerState.h
-
 #pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerState.h"
 #include "ErosSocialPlayerState.generated.h"
 
-/**
- * Enum para status do jogador
- */
 UENUM(BlueprintType)
 enum class EPlayerStatus : uint8
 {
@@ -18,9 +15,6 @@ enum class EPlayerStatus : uint8
     AFK         UMETA(DisplayName = "AFK")
 };
 
-/**
- * Player State - dados de cada jogador na sessão multiplayer
- */
 UCLASS()
 class EROSSOCIAL_API AErosSocialPlayerState : public APlayerState
 {
@@ -39,6 +33,10 @@ public:
 
     UPROPERTY(Replicated, BlueprintReadWrite, Category = "Character")
     FString UserID;
+
+    // âœ… ADICIONADO: CharacterSlot
+    UPROPERTY(Replicated, BlueprintReadWrite, Category = "Character")
+    int32 CharacterSlot;
 
     // ========== STATUS DO JOGADOR ==========
 
@@ -64,13 +62,11 @@ public:
     UPROPERTY(Replicated, BlueprintReadWrite, Category = "Social")
     TArray<FString> FriendsList;
 
-    // ========== FUNÇÕES PÚBLICAS ==========
+    // ========== FUNÃ‡Ã•ES PÃšBLICAS ==========
 
-    // Inicialização
     UFUNCTION(BlueprintCallable, Category = "Character")
     void InitializeCharacter(const FString& InCharacterName, const FString& InGender, const FString& InUserID);
 
-    // Status
     UFUNCTION(BlueprintCallable, Category = "Status")
     void SetPlayerStatus(EPlayerStatus NewStatus);
 
@@ -86,7 +82,6 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Status")
     void CheckAFK();
 
-    // Partner System
     UFUNCTION(BlueprintCallable, Category = "Partner")
     void SetPartner(AErosSocialPlayerState* NewPartner);
 
@@ -99,7 +94,6 @@ public:
     UFUNCTION(BlueprintPure, Category = "Partner")
     AErosSocialPlayerState* GetPartner() const { return PartnerPlayerState; }
 
-    // Sistema Social
     UFUNCTION(BlueprintCallable, Category = "Social")
     void AddFriend(const FString& FriendUserID);
 
@@ -114,6 +108,5 @@ protected:
     virtual void BeginPlay() override;
 
 private:
-    // Timer para verificar AFK
     FTimerHandle AFKCheckTimer;
 };

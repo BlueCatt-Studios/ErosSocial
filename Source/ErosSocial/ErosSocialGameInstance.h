@@ -1,4 +1,4 @@
-// Copyright BlueCatt Studios - All rights Reserved
+// Copyright BlueCatt Studios - All Rights Reserved
 // ErosSocialGameInstance.h
 // Gerencia dados persistentes do jogo (login, personagem selecionado, etc)
 
@@ -6,78 +6,186 @@
 
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
+#include "CharacterSaveData.h"
 #include "ErosSocialGameInstance.generated.h"
 
-USTRUCT(BlueprintType)
-struct FCharacterData
-{
-    GENERATED_BODY()
+class UCharacterManager;
+class USaveGameManager;
 
-    UPROPERTY(BlueprintReadWrite, Category = "Character")
-    FString CharacterName;
-
-    UPROPERTY(BlueprintReadWrite, Category = "Character")
-    FString CharacterGender;
-
-    UPROPERTY(BlueprintReadWrite, Category = "Character")
-    int32 CharacterSlot;
-
-    UPROPERTY(BlueprintReadWrite, Category = "Character")
-    bool bIsCreated;
-
-    FCharacterData()
-        : CharacterName(TEXT(""))
-        , CharacterGender(TEXT("Male"))
-        , CharacterSlot(0)
-        , bIsCreated(false)
-    {
-    }
-};
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCharacterSelected, FCharacterSaveData, CharacterData);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnCharacterListUpdated);
 
 UCLASS()
 class EROSSOCIAL_API UErosSocialGameInstance : public UGameInstance
 {
-    GENERATED_BODY()
+	GENERATED_BODY()
 
 public:
-    UErosSocialGameInstance();
+	UErosSocialGameInstance();
 
-    UPROPERTY(BlueprintReadWrite, Category = "User")
-    FString Username;
+	// ========== INICIALIZAÇÃO ==========
 
-    UPROPERTY(BlueprintReadWrite, Category = "User")
-    FString UserID;
+	virtual void Init() override;
 
-    UPROPERTY(BlueprintReadWrite, Category = "User")
-    bool bIsLoggedIn;
+	// ========== AUTENTICAÇÃO ==========
 
-    UPROPERTY(BlueprintReadWrite, Category = "Character")
-    TArray<FCharacterData> PlayerCharacters;
+	/**
+	 * Define usuário logado
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Authentication")
+	void SetUserLoggedIn(const FString& InUsername, const FString& InUserID);
 
-    UPROPERTY(BlueprintReadWrite, Category = "Character")
-    int32 SelectedCharacterSlot;
+	/**
+	 * Faz logout
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Authentication")
+	void Logout();
 
-    UPROPERTY(BlueprintReadWrite, Category = "Character")
-    FCharacterData CurrentCharacter;
+	/**
+	 * Verifica se usuário está logado
+	 */
+	UFUNCTION(BlueprintPure, Category = "Authentication")
+	bool IsUserLoggedIn() const { return bIsLoggedIn; }
 
-    UFUNCTION(BlueprintCallable, Category = "Authentication")
-    void SetUserLoggedIn(const FString& InUsername, const FString& InUserID);
+	/**
+	 * Obtém o UserID atual
+	 */
+	UFUNCTION(BlueprintPure, Category = "Authentication")
+	FString GetUserID() const { return UserID; }
 
-    UFUNCTION(BlueprintCallable, Category = "Authentication")
-    void Logout();
+	// ========== GERENCIAMENTO DE PERSONAGENS ==========
 
-    UFUNCTION(BlueprintCallable, Category = "Character")
-    void AddCharacter(const FCharacterData& NewCharacter);
+	/**
+	 * Cria um novo personagem
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Character")
+	bool CreateCharacter(const FString& CharacterName, const FString& CharacterGender);
 
-    UFUNCTION(BlueprintCallable, Category = "Character")
-    void SelectCharacter(int32 SlotIndex);
+	/**
+	 * Carrega todos os personagens do usuário
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Character")
+	bool LoadAllCharacters();
 
-    UFUNCTION(BlueprintCallable, Category = "Character")
-    bool CanCreateNewCharacter();
+	/**
+	 * Seleciona um personagem para jogar
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Character")
+	bool SelectCharacter(int32 SlotIndex);
 
-    UFUNCTION(BlueprintPure, Category = "Character")
-    FCharacterData GetSelectedCharacter() const;
+	/**
+	 * Deleta um personagem
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Character")
+	bool DeleteCharacter(int32 SlotIndex);
+
+	/**
+	 * Verifica se pode criar novo personagem
+	 */
+	UFUNCTION(BlueprintPure, Category = "Character")
+	bool CanCreateNewCharacter() const;
+
+	/**
+	 * Obtém a lista de personagens carregados
+	 */
+	UFUNCTION(BlueprintPure, Category = "Character")
+	const TArray<FCharacterSaveData>& GetLoadedCharacters() const { return LoadedCharacters; }
+
+	/**
+	 * Obtém o personagem selecionado
+	 */
+	UFUNCTION(BlueprintPure, Category = "Character")
+	const FCharacterSaveData& GetSelectedCharacter() const { return SelectedCharacter; }
+
+	/**
+	 * Obtém o índice do personagem selecionado
+	 */
+	UFUNCTION(BlueprintPure, Category = "Character")
+	int32 GetSelectedCharacterSlot() const { return SelectedCharacterSlot; }
+
+	/**
+	 * Get character data from a specific slot
+	 * @param SlotIndex - The slot to retrieve (0 or 1)
+	 * @param OutCharacterData - Output parameter with character data
+	 * @return true if slot has a character, false if empty
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Character")
+	bool GetCharacterData(int32 SlotIndex, FCharacterSaveData& OutCharacterData);
+
+	/**
+	 * Update only the appearance/customization of an existing character
+	 * Does NOT change name, gender, or slot
+	 * @param SlotIndex - The slot to update (0 or 1)
+	 * @param NewBodyCustomization - New body morphs
+	 * @param NewAppearanceCustomization - New appearance settings
+	 * @param NewCurrentOutfit - New outfit data (array of clothing items)
+	 * @return true if updated successfully, false otherwise
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Character")
+	bool UpdateCharacterAppearance(
+		int32 SlotIndex,
+		const FBodyCustomization& NewBodyCustomization,
+		const FAppearanceCustomization& NewAppearanceCustomization,
+		const TArray<FClothingItemData>& NewCurrentOutfit
+	);
+
+	// ========== GERENCIADORES ==========
+
+	/**
+	 * Obtém o Character Manager
+	 */
+	UFUNCTION(BlueprintPure, Category = "Managers")
+	UCharacterManager* GetCharacterManager() const { return CharacterManager; }
+
+	/**
+	 * Obtém o Save Game Manager
+	 */
+	UFUNCTION(BlueprintPure, Category = "Managers")
+	USaveGameManager* GetSaveGameManager() const { return SaveGameManager; }
+
+	// ========== EVENTOS ==========
+
+	/** Disparado quando um personagem é selecionado */
+	UPROPERTY(BlueprintAssignable, Category = "Events")
+	FOnCharacterSelected OnCharacterSelected;
+
+	/** Disparado quando a lista de personagens é atualizada */
+	UPROPERTY(BlueprintAssignable, Category = "Events")
+	FOnCharacterListUpdated OnCharacterListUpdated;
 
 protected:
-    virtual void Init() override;
+
+	// ========== DADOS DO USUÁRIO ==========
+
+	UPROPERTY(VisibleAnywhere, Category = "Authentication")
+	FString Username;
+
+	UPROPERTY(VisibleAnywhere, Category = "Authentication")
+	FString UserID;
+
+	UPROPERTY(VisibleAnywhere, Category = "Authentication")
+	bool bIsLoggedIn;
+
+	// ========== DADOS DE PERSONAGEM ==========
+
+	UPROPERTY(VisibleAnywhere, Category = "Character")
+	TArray<FCharacterSaveData> LoadedCharacters;
+
+	UPROPERTY(VisibleAnywhere, Category = "Character")
+	FCharacterSaveData SelectedCharacter;
+
+	UPROPERTY(VisibleAnywhere, Category = "Character")
+	int32 SelectedCharacterSlot;
+
+	// ========== GERENCIADORES ==========
+
+	UPROPERTY()
+	UCharacterManager* CharacterManager;
+
+	UPROPERTY()
+	USaveGameManager* SaveGameManager;
+
+	// ========== FUNÇÕES PRIVADAS ==========
+
+	void InitializeManagers();
 };
